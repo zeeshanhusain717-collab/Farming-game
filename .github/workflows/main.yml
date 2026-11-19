@@ -33,11 +33,19 @@ jobs:
       run: |
         python generate_icon.py
 
-    - name: Accept Android SDK Licenses & Build APK
+    - name: Pre-accept Android SDK Licenses
       run: |
-        # यह कमांड एंड्रॉइड एसडीके के सभी पेंडिंग लाइसेंसों को अपने आप स्वीकार कर लेगी
-        mkdir -p ~/.android && touch ~/.android/repositories.cfg
-        yes | buildozer -v android debug
+        # एंड्रॉइड एसडीके के लिए लाइसेंस फोल्डर बनाकर पहले से ही एक्सेप्टेड लाइसेंस की हैश फाइलें डाल देना
+        SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+        mkdir -p $SDK_DIR/licenses
+        # Android SDK license hashes (standard accepted hashes)
+        echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $SDK_DIR/licenses/android-sdk-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a648b0" >> $SDK_DIR/licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > $SDK_DIR/licenses/android-sdk-preview-license
+
+    - name: Build APK with Buildozer
+      run: |
+        buildozer -v android debug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
