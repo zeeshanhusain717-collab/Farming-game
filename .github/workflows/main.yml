@@ -7,39 +7,76 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+        cache: 'pip'
 
-    - name: Install System & Buildozer Dependencies
+    - name: Install System Dependencies
       run: |
         sudo dpkg --add-architecture i386
         sudo apt-get update
         sudo apt-get install -y \
-          build-essential ccache git libstdc++6:i386 zlib1g:i386 \
-          libncurses6 libstdc++6 zlib1g openjdk-17-jdk unzip libffi-dev libssl-dev \
-          autoconf libtool pkg-config zlib1g-dev libncurses-dev libsdl2-dev
+          build-essential ccache git unzip zip \
+          libstdc++6:i386 zlib1g:i386 \
+          libncurses6 libstdc++6 zlib1g zlib1g-dev libncurses-dev \
+          libffi-dev libssl-dev autoconf libtool pkg-config \
+          libsdl2-dev
+
+    - name: Install Python Build Tools
+      run: |
         python -m pip install --upgrade pip
-        pip install Pillow cython buildozer
+        pip install "buildozer==1.5.0" "cython==0.29.36" Pillow
 
     - name: Generate Game Icon
       run: |
         python generate_icon.py
 
-    - name: Build APK with Buildozer (Auto-Accept Mode)
+    - name: Prepare buildozer.spec
       run: |
-        # यहाँ हम buildozer को सीधे चला रहे हैं और pipe के जरिए 'y' भेज रहे हैं ताकि लाइसेंस आटोमेटिक एक्सेप्ट हो जाए
-        yes | buildozer -v android debug
+        # Deprecated key hatao
+        sed -i '/^android\.sdk\s*=/d' buildozer.spec
+        # License auto-accept (yes pipe ki zaroorat nahi)
+        grep -q "^android.accept_sdk_license" buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
+        # NDK version jo p4a recommend karta hai
+        sed -i 's/^android\.ndk\s*=.*/android.ndk = 25b/' buildozer.spec
+        grep -q "^android.ndk " buildozer.spec || echo "android.ndk = 25b" >> buildozer.spec
+        cat buildozer.spec
+
+    - name: Cache Buildozer Directory
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer
+          .buildozer
+        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          buildozer-${{ runner.os }}-
+
+    - name: Build APK with Buildozer
+      env:
+        JAVA_HOME: ${{ env.JAVA_HOME }}
+      run: |
+        set -e
+        buildozer -v android debug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: package
         path: bin/*.apk
+        if-no-files-found: error
