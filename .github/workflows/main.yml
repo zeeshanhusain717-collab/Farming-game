@@ -23,9 +23,9 @@ jobs:
         sudo dpkg --add-architecture i386
         sudo apt-get update
         sudo apt-get install -y \
-          build-essential ccache git libncurses5:i386 libstdc++6:i386 zlib1g:i386 \
-          libncurses5 libstdc++6 zlib1g openjdk-17-jdk unzip libffi-dev libssl-dev \
-          autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libsdl2-dev
+          build-essential ccache git libstdc++6:i386 zlib1g:i386 \
+          libncurses6 libstdc++6 zlib1g openjdk-17-jdk unzip libffi-dev libssl-dev \
+          autoconf libtool pkg-config zlib1g-dev libncursesw6-dev libsdl2-dev
         python -m pip install --upgrade pip
         pip install Pillow cython buildozer
 
@@ -42,3 +42,4 @@ jobs:
       with:
         name: package
         path: bin/*.apk
+
