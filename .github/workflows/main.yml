@@ -33,13 +33,14 @@ jobs:
       run: |
         python generate_icon.py
 
-    - name: Build APK with Buildozer
+    - name: Accept Android SDK Licenses & Build APK
       run: |
-        buildozer -v android debug
+        # यह कमांड एंड्रॉइड एसडीके के सभी पेंडिंग लाइसेंसों को अपने आप स्वीकार कर लेगी
+        mkdir -p ~/.android && touch ~/.android/repositories.cfg
+        yes | buildozer -v android debug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: package
         path: bin/*.apk
-
