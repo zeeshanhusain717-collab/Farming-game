@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import traceback
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -12,13 +13,18 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 
-from audio import Audio
+try:
+    from audio import Audio
+except Exception:
+    traceback.print_exc()
+    Audio = None
 
 N = 7
 HARVEST_UNITS = 7
 CRYSTALS_PER_GOLD = 7
 BOOST_COST = 7
 SAVE_NAME = "save.json"
+MAX_DT = 1.0  # ek tick mein zyada se zyada 1 second ka time
 
 # (naam, daam per unit, ugne ka time sec)
 CROPS = [
@@ -73,20 +79,63 @@ COL_CASTLE = (0.75, 0.6, 0.45, 1)
 COL_BOOST = (0.3, 0.6, 0.9, 1)
 COL_SETTING = (0.4, 0.4, 0.55, 1)
 
-state = {
-    "credits": 777.0,
-    "crystals": 77,
-    "tier": 1,
-    "plots": [{"unlocked": i == 0, "state": "empty", "timer": 0.0} for i in range(N)],
-    "parts": [[1] * N for _ in range(N)],
-    "settings": {"sfx": True, "music": True, "vibe": True},
-}
+
+def new_state():
+    return {
+        "credits": 777.0,
+        "crystals": 77,
+        "tier": 1,
+        "plots": [{"unlocked": i == 0, "state": "empty", "timer": 0.0} for i in range(N)],
+        "parts": [[1] * N for _ in range(N)],
+        "settings": {"sfx": True, "music": True, "vibe": True},
+    }
+
+
+state = new_state()
+
+
+class NoAudio:
+    """Audio na chale to game isi se chalta hai."""
+    def __init__(self, settings):
+        self.settings = settings
+
+    def play(self, key):
+        pass
+
+    def vibrate_for(self, key):
+        pass
+
+    def start_music(self):
+        pass
+
+    def apply_music_setting(self):
+        pass
+
+    def pause(self):
+        pass
+
+    def resume(self):
+        pass
+
+
+def guarded(fn):
+    """Handler mein error aaye to app band na ho, sirf log mein print ho."""
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception:
+            traceback.print_exc()
+    return wrapper
 
 
 # ---------- Game logic: har function (message, sound_key) return karta hai ----------
 
+def tier_now():
+    return min(N, max(1, int(state["tier"])))
+
+
 def bonus():
-    return 1 + 0.1 * (state["tier"] - 1)
+    return 1 + 0.1 * (tier_now() - 1)
 
 
 def plot_cost(i):
@@ -94,7 +143,7 @@ def plot_cost(i):
 
 
 def castle_cost():
-    return 500 * state["tier"]
+    return 500 * tier_now()
 
 
 def machine_income(j):
@@ -110,7 +159,7 @@ def plant_or_harvest(i):
     name, price, secs = CROPS[i]
 
     if not p["unlocked"]:
-        if not state["plots"][i - 1]["unlocked"]:
+        if i == 0 or not state["plots"][i - 1]["unlocked"]:
             return "Pehle pichla khet unlock karo", "error"
         cost = plot_cost(i)
         if state["credits"] < cost:
@@ -121,7 +170,7 @@ def plant_or_harvest(i):
 
     if p["state"] == "empty":
         p["state"] = "growing"
-        p["timer"] = secs
+        p["timer"] = float(secs)
         return f"{name} ka beej bo diya", "plant"
 
     if p["state"] == "growing":
@@ -153,7 +202,7 @@ def upgrade_machine(j):
 
 
 def upgrade_castle():
-    t = state["tier"]
+    t = tier_now()
     if t >= N:
         return "Castle sabse upar wale tier par hai", "error"
     cost = castle_cost()
@@ -178,6 +227,7 @@ def boost():
 
 
 def game_tick(dt):
+    dt = min(max(dt, 0.0), MAX_DT)
     for p in state["plots"]:
         if p["state"] == "growing":
             p["timer"] -= dt
@@ -190,26 +240,57 @@ def game_tick(dt):
 # ---------- Save / Load ----------
 
 def save_game(path):
+    tmp = path + ".tmp"
     try:
-        with open(path, "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(state, f)
-    except OSError:
-        pass
+        os.replace(tmp, path)
+    except Exception:
+        traceback.print_exc()
 
 
 def load_game(path):
+    """Save file validate karke load karta hai. Kuch galat ho to default rakhta hai."""
     if not os.path.exists(path):
         return
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        # Purane save mein settings nahi honge, isliye default ko rakhte hain
-        settings = dict(state["settings"])
-        settings.update(data.get("settings", {}))
-        data["settings"] = settings
-        state.update(data)
-    except (OSError, ValueError):
-        pass
+        if not isinstance(data, dict):
+            return
+
+        fresh = new_state()
+        fresh["credits"] = max(0.0, float(data.get("credits", fresh["credits"])))
+        fresh["crystals"] = max(0, int(data.get("crystals", fresh["crystals"])))
+        fresh["tier"] = min(N, max(1, int(data.get("tier", 1))))
+
+        plots = data.get("plots", [])
+        for i in range(N):
+            if i < len(plots) and isinstance(plots[i], dict):
+                p = plots[i]
+                st = p.get("state", "empty")
+                if st not in ("empty", "growing", "ready"):
+                    st = "empty"
+                fresh["plots"][i] = {
+                    "unlocked": bool(p.get("unlocked", i == 0)) or i == 0,
+                    "state": st,
+                    "timer": max(0.0, float(p.get("timer", 0.0))),
+                }
+
+        parts = data.get("parts", [])
+        for j in range(N):
+            if j < len(parts) and isinstance(parts[j], list) and len(parts[j]) == N:
+                fresh["parts"][j] = [min(N, max(1, int(x))) for x in parts[j]]
+
+        s = data.get("settings", {})
+        if isinstance(s, dict):
+            for k in fresh["settings"]:
+                fresh["settings"][k] = bool(s.get(k, fresh["settings"][k]))
+
+        state.clear()
+        state.update(fresh)
+    except Exception:
+        traceback.print_exc()
 
 
 # ---------- UI helpers ----------
@@ -237,6 +318,7 @@ class StoryScreen(Screen):
         box.add_widget(start)
         self.add_widget(box)
 
+    @guarded
     def start(self, *args):
         app = App.get_running_app()
         app.audio.start_music()
@@ -328,7 +410,6 @@ class GameScreen(Screen):
 
         root.add_widget(tabs)
         self.add_widget(root)
-        Clock.schedule_interval(self.on_tick, 0.25)
         self.refresh()
 
     def add_tab(self, tabs, title, content):
@@ -336,6 +417,7 @@ class GameScreen(Screen):
         item.add_widget(content)
         tabs.add_widget(item)
 
+    @guarded
     def act(self, fn, *args):
         msg, sfx = fn(*args)
         self.msg.text = msg
@@ -344,6 +426,7 @@ class GameScreen(Screen):
         app.audio.vibrate_for(sfx)
         self.refresh()
 
+    @guarded
     def toggle(self, key):
         app = App.get_running_app()
         s = state["settings"]
@@ -353,14 +436,16 @@ class GameScreen(Screen):
         app.audio.play("tap")
         self.refresh()
 
+    @guarded
     def on_tick(self, dt):
         game_tick(dt)
         self.refresh()
 
+    @guarded
     def refresh(self):
         inc = total_income()
         self.top.text = (f"Credits: {int(state['credits'])}   Crystals: {state['crystals']}\n"
-                         f"Income: {inc:.1f}/sec   Castle Tier: {state['tier']}/{N}")
+                         f"Income: {inc:.1f}/sec   Castle Tier: {tier_now()}/{N}")
 
         for i, b in enumerate(self.plot_btns):
             name, price, _secs = CROPS[i]
@@ -387,7 +472,7 @@ class GameScreen(Screen):
             b.text = (f"{name}\nParts {sum(parts)}/{N * N}  |  +{machine_income(j):.1f}/sec\n"
                       f"Upgrade: {upg}")
 
-        t = state["tier"]
+        t = tier_now()
         self.castle_info.text = (f"Rajput Agri-Palace - Tier {t}/{N}\n\n"
                                  f"{CHAPTERS[t - 1]}")
         if t < N:
@@ -404,25 +489,45 @@ class GameScreen(Screen):
 class FarmApp(App):
     def build(self):
         self.title = "Farm 7: Agri-Estate"
-        self.save_path = os.path.join(self.user_data_dir, SAVE_NAME)
-        load_game(self.save_path)
-        self.audio = Audio(state["settings"])
+        try:
+            self.save_path = os.path.join(self.user_data_dir, SAVE_NAME)
+            load_game(self.save_path)
 
-        sm = ScreenManager()
-        sm.add_widget(StoryScreen(name="story"))
-        sm.add_widget(GameScreen(name="game"))
+            try:
+                self.audio = Audio(state["settings"]) if Audio else NoAudio(state["settings"])
+            except Exception:
+                traceback.print_exc()
+                self.audio = NoAudio(state["settings"])
 
-        # Har 10 second mein auto-save, taaki crash hone par bhi progress bache
-        Clock.schedule_interval(lambda dt: save_game(self.save_path), 10)
-        return sm
+            sm = ScreenManager()
+            sm.add_widget(StoryScreen(name="story"))
+            sm.add_widget(GameScreen(name="game"))
+
+            Clock.schedule_interval(lambda dt: save_game(self.save_path), 10)
+            return sm
+        except Exception:
+            err = traceback.format_exc()
+            traceback.print_exc()
+            box = ScrollView()
+            lbl = Label(text="Game shuru nahi ho paya. Ye error screenshot lekar bhejein:\n\n" + err,
+                        font_size="12sp", halign="left", valign="top")
+            wrap(lbl)
+            box.add_widget(lbl)
+            return box
 
     def on_pause(self):
         save_game(self.save_path)
-        self.audio.pause()
+        try:
+            self.audio.pause()
+        except Exception:
+            traceback.print_exc()
         return True
 
     def on_resume(self):
-        self.audio.resume()
+        try:
+            self.audio.resume()
+        except Exception:
+            traceback.print_exc()
 
     def on_stop(self):
         save_game(self.save_path)
