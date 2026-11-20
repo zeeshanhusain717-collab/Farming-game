@@ -63,20 +63,29 @@ jobs:
           python generate_icon.py
         fi
 
+    - name: Clean old buildozer state
+      run: |
+        rm -rf .buildozer bin
+
     - name: Cache Buildozer Directory
       uses: actions/cache@v4
       with:
         path: |
           ~/.buildozer
-          .buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-        restore-keys: |
-          buildozer-${{ runner.os }}-
+        key: buildozer-v3-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
     - name: Build APK with Buildozer
       run: |
-        set -e
-        buildozer -v android debug
+        set -o pipefail
+        buildozer -v android debug 2>&1 | tee build_log.txt
+
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: build_log.txt
+        if-no-files-found: warn
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
