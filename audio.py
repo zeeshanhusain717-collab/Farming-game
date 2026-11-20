@@ -15,7 +15,6 @@ SFX_FILES = {
 }
 MUSIC_FILE = "music/farm_theme.ogg"
 
-# Vibration milliseconds mein
 VIBE_MS = {"harvest": 40, "unlock": 60, "upgrade": 25, "boost": 80, "tier": 150, "error": 30}
 
 try:
@@ -81,7 +80,6 @@ class Audio:
             from plyer import vibrator
             vibrator.vibrate(ms / 1000.0)
         except Exception:
-            # Desktop par ya permission na ho to chupchap skip
             pass
 
     def start_music(self):
