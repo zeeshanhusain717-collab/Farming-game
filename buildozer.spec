@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ogg,wav,mp3
 source.exclude_dirs = .buildozer,bin,.github
 version = 1.0
-requirements = python3,kivy==2.3.0,plyer
+requirements = python3==3.11.5,kivy==2.3.0,plyer
 orientation = portrait
 fullscreen = 0
 android.permissions = VIBRATE
@@ -16,6 +16,7 @@ android.ndk = 25b
 android.archs = arm64-v8a
 android.accept_sdk_license = True
 android.allow_backup = True
+p4a.branch = release-2024.01.21
 
 [buildozer]
 log_level = 2
