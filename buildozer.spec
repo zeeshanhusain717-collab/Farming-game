@@ -1,17 +1,22 @@
 [app]
-title = Farm 7 Agri-Estate
-package.name = farm7agri
-package.domain = org.farm7
+title = Farm7
+package.name = farm7
+package.domain = org.farm
 source.dir = .
-source.exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,ogg,wav,mp3
+source.exclude_dirs = .buildozer,bin,.github
 version = 1.0
-requirements = python3,ursina,panda3d,ursine
-orientation = landscape
-fullscreen = 1
-android.permissions = INTERNET
+requirements = python3,kivy==2.3.0,plyer
+orientation = portrait
+fullscreen = 0
+android.permissions = VIBRATE
 android.api = 33
 android.minapi = 21
-android.sdk = 30
 android.ndk = 25b
 android.archs = arm64-v8a
+android.accept_sdk_license = True
+android.allow_backup = True
 
+[buildozer]
+log_level = 2
+warn_on_root = 1
