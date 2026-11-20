@@ -1,6 +1,5 @@
 import os
-
-from kivy.core.audio import SoundLoader
+import traceback
 
 BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
@@ -16,15 +15,28 @@ SFX_FILES = {
 }
 MUSIC_FILE = "music/farm_theme.ogg"
 
-# Vibration milliseconds mein. Sirf jo events important hain, unhe hi vibrate karenge.
+# Vibration milliseconds mein
 VIBE_MS = {"harvest": 40, "unlock": 60, "upgrade": 25, "boost": 80, "tier": 150, "error": 30}
+
+try:
+    from kivy.core.audio import SoundLoader
+except Exception:
+    traceback.print_exc()
+    SoundLoader = None
 
 
 def _load(rel):
-    path = os.path.join(BASE, rel)
-    if not os.path.exists(path):
+    """Khaali ya missing file par None return karta hai. Crash nahi karta."""
+    try:
+        path = os.path.join(BASE, rel)
+        if SoundLoader is None or not os.path.exists(path):
+            return None
+        if os.path.getsize(path) == 0:
+            return None
+        return SoundLoader.load(path)
+    except Exception:
+        traceback.print_exc()
         return None
-    return SoundLoader.load(path)
 
 
 class Audio:
@@ -41,19 +53,26 @@ class Audio:
 
         self.music = _load(MUSIC_FILE)
         if self.music:
-            self.music.loop = True
-            self.music.volume = 0.35
+            try:
+                self.music.loop = True
+                self.music.volume = 0.35
+            except Exception:
+                traceback.print_exc()
 
     def play(self, key):
-        if not self.settings["sfx"]:
+        if not self.settings.get("sfx"):
             return
         s = self.sounds.get(key)
-        if s:
+        if not s:
+            return
+        try:
             s.stop()
             s.play()
+        except Exception:
+            traceback.print_exc()
 
     def vibrate_for(self, key):
-        if not self.settings["vibe"]:
+        if not self.settings.get("vibe"):
             return
         ms = VIBE_MS.get(key)
         if not ms:
@@ -66,23 +85,28 @@ class Audio:
             pass
 
     def start_music(self):
-        if self.music and self.settings["music"] and not self._music_playing:
+        if not self.music or not self.settings.get("music") or self._music_playing:
+            return
+        try:
             self.music.play()
             self._music_playing = True
+        except Exception:
+            traceback.print_exc()
 
     def apply_music_setting(self):
-        if not self.music:
-            return
-        if self.settings["music"]:
+        if self.settings.get("music"):
             self.start_music()
         else:
-            self.music.stop()
-            self._music_playing = False
+            self.pause()
 
     def pause(self):
-        if self.music:
+        if not self.music:
+            return
+        try:
             self.music.stop()
-            self._music_playing = False
+        except Exception:
+            traceback.print_exc()
+        self._music_playing = False
 
     def resume(self):
         self.start_music()
