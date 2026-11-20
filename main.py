@@ -16,8 +16,8 @@ from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 
 # ---------- Diagnostic log: har step yahan record hota hai ----------
 
-DIAG = []          # [(status, title, detail)]  status: OK / ERR / INFO
-ERRORS = []        # [{"where", "type", "msg", "file", "line", "func", "hint"}]
+DIAG = []
+ERRORS = []
 SEEN = set()
 
 HINTS = {
@@ -38,7 +38,6 @@ def hint_for(etype):
 
 
 def record_exc(where):
-    """except block ke andar call karein. Error ka naam, file, line, function save karta hai."""
     et, ev, tb = sys.exc_info()
     if et is None:
         return
@@ -70,7 +69,7 @@ def diag(status, title, detail=""):
 
 def diag_text():
     lines = []
-    lines.append(f"STATUS: {len(ERRORS)} error, {len([d for d in DIAG if d[0]=='ERR'])} step fail")
+    lines.append(f"STATUS: {len(ERRORS)} error, {len([d for d in DIAG if d[0] == 'ERR'])} step fail")
     lines.append("")
     lines.append("=== STEPS ===")
     for status, title, detail in DIAG:
@@ -129,7 +128,6 @@ def wrap(label, auto_height=True):
 
 
 class DebugPanel(ScrollView):
-    """Neeche ka panel: sabhi steps, errors aur game state dikhata hai."""
     def __init__(self, **kw):
         super().__init__(size_hint_y=None, height=260, **kw)
         self.lbl = Label(text="", font_size="11sp", halign="left", valign="top",
@@ -142,16 +140,6 @@ class DebugPanel(ScrollView):
     def update(self):
         self.lbl.text = diag_text()
 
-
-# ---------- Settings ----------
-
-try:
-    from audio import Audio
-    diag("OK", "audio.py import")
-except Exception:
-    diag("ERR", "audio.py import", "import fail, game bina sound ke chalega")
-    record_exc("audio.py import")
-    Audio = None
 
 N = 7
 HARVEST_UNITS = 7
@@ -212,8 +200,6 @@ COL_BOOST = (0.3, 0.6, 0.9, 1)
 COL_SETTING = (0.4, 0.4, 0.55, 1)
 
 
-# ---------- Game data ----------
-
 def new_state():
     return {
         "credits": 777.0,
@@ -221,34 +207,10 @@ def new_state():
         "tier": 1,
         "plots": [{"unlocked": i == 0, "state": "empty", "timer": 0.0} for i in range(N)],
         "parts": [[1] * N for _ in range(N)],
-        "settings": {"sfx": True, "music": True, "vibe": True},
     }
 
 
 state = new_state()
-
-
-class NoAudio:
-    def __init__(self, settings):
-        self.settings = settings
-
-    def play(self, key):
-        pass
-
-    def vibrate_for(self, key):
-        pass
-
-    def start_music(self):
-        pass
-
-    def apply_music_setting(self):
-        pass
-
-    def pause(self):
-        pass
-
-    def resume(self):
-        pass
 
 
 def tier_now():
@@ -358,8 +320,6 @@ def game_tick(dt):
     state["credits"] += total_income() * dt
 
 
-# ---------- Save / Load ----------
-
 def save_game(path):
     tmp = path + ".tmp"
     try:
@@ -402,11 +362,6 @@ def load_game(path):
             if j < len(parts) and isinstance(parts[j], list) and len(parts[j]) == N:
                 fresh["parts"][j] = [min(N, max(1, int(x))) for x in parts[j]]
 
-        s = data.get("settings", {})
-        if isinstance(s, dict):
-            for k in fresh["settings"]:
-                fresh["settings"][k] = bool(s.get(k, fresh["settings"][k]))
-
         state.clear()
         state.update(fresh)
         diag("OK", "save file load")
@@ -414,8 +369,6 @@ def load_game(path):
         diag("ERR", "save file load", "save kharab tha, default use hua")
         record_exc("load_game")
 
-
-# ---------- Screens ----------
 
 class StoryScreen(Screen):
     def __init__(self, **kw):
@@ -439,8 +392,6 @@ class StoryScreen(Screen):
     def start(self, *args):
         diag("INFO", "button: Khel Shuru Karo dabaya")
         app = App.get_running_app()
-        app.audio.start_music()
-        app.audio.play("tap")
         app.root.current = "game"
         update_panels()
 
@@ -453,9 +404,6 @@ class GameScreen(Screen):
         self.machine_btns = []
         self.castle_info = None
         self.castle_btn = None
-        self.sfx_btn = None
-        self.music_btn = None
-        self.vibe_btn = None
 
         box = BoxLayout(orientation="vertical", padding=8, spacing=6)
         self.top_lbl = Label(size_hint_y=None, height=50, font_size="14sp", halign="center")
@@ -477,7 +425,6 @@ class GameScreen(Screen):
             ("Khet", self._build_farm),
             ("Factory", self._build_factory),
             ("Castle", self._build_castle),
-            ("Settings", self._build_settings),
             ("Guide", self._build_guide),
         ]
         first = None
@@ -543,19 +490,6 @@ class GameScreen(Screen):
         castle.add_widget(self.castle_btn)
         return castle
 
-    def _build_settings(self):
-        settings = BoxLayout(orientation="vertical", spacing=10, padding=10)
-        self.sfx_btn = Button(size_hint_y=None, height=70, background_color=COL_SETTING)
-        self.sfx_btn.bind(on_release=lambda *_: self.toggle("sfx"))
-        self.music_btn = Button(size_hint_y=None, height=70, background_color=COL_SETTING)
-        self.music_btn.bind(on_release=lambda *_: self.toggle("music"))
-        self.vibe_btn = Button(size_hint_y=None, height=70, background_color=COL_SETTING)
-        self.vibe_btn.bind(on_release=lambda *_: self.toggle("vibe"))
-        settings.add_widget(self.sfx_btn)
-        settings.add_widget(self.music_btn)
-        settings.add_widget(self.vibe_btn)
-        return settings
-
     def _build_guide(self):
         guide_lbl = Label(text=GUIDE, halign="left", valign="top", font_size="14sp")
         wrap(guide_lbl)
@@ -565,23 +499,9 @@ class GameScreen(Screen):
 
     @guarded
     def act(self, fn, *args):
-        msg, sfx = fn(*args)
+        msg, _sfx = fn(*args)
         self.msg.text = msg
         diag("INFO", f"button: {fn.__name__}", msg)
-        app = App.get_running_app()
-        app.audio.play(sfx)
-        app.audio.vibrate_for(sfx)
-        self.refresh()
-
-    @guarded
-    def toggle(self, key):
-        app = App.get_running_app()
-        s = state["settings"]
-        s[key] = not s[key]
-        diag("INFO", f"setting: {key}", "ON" if s[key] else "OFF")
-        if key == "music":
-            app.audio.apply_music_setting()
-        app.audio.play("tap")
         self.refresh()
 
     @guarded
@@ -591,7 +511,7 @@ class GameScreen(Screen):
 
     def refresh(self):
         for fn in (self._refresh_top, self._refresh_boost, self._refresh_plots,
-                   self._refresh_machines, self._refresh_castle, self._refresh_settings):
+                   self._refresh_machines, self._refresh_castle):
             safe(f"screen update: {fn.__name__}", fn)
         update_panels()
 
@@ -640,33 +560,14 @@ class GameScreen(Screen):
         else:
             self.castle_btn.text = "Castle MAX ho gaya!"
 
-    def _refresh_settings(self):
-        if self.sfx_btn is None:
-            return
-        s = state["settings"]
-        self.sfx_btn.text = f"Sound effects: {'ON' if s['sfx'] else 'OFF'}"
-        self.music_btn.text = f"Background music: {'ON' if s['music'] else 'OFF'}"
-        self.vibe_btn.text = f"Vibration: {'ON' if s['vibe'] else 'OFF'}"
-
-
-# ---------- App ----------
 
 class FarmApp(App):
     def build(self):
         self.title = "Farm 7: Agri-Estate"
-        self.audio = NoAudio(state["settings"])
         self.save_path = os.path.join(self.user_data_dir, SAVE_NAME)
         diag("INFO", "app shuru", self.user_data_dir)
 
         safe("save file load", load_game, self.save_path)
-
-        try:
-            self.audio = Audio(state["settings"]) if Audio else NoAudio(state["settings"])
-            diag("OK", "audio setup")
-        except Exception:
-            diag("ERR", "audio setup", "bina sound ke chalega")
-            record_exc("audio setup")
-            self.audio = NoAudio(state["settings"])
 
         story = safe("StoryScreen banana", StoryScreen, name="story")
         game = safe("GameScreen banana", GameScreen, name="game")
@@ -695,20 +596,6 @@ class FarmApp(App):
         box.add_widget(lbl)
         s.add_widget(box)
         return s
-
-    def on_pause(self):
-        save_game(self.save_path)
-        try:
-            self.audio.pause()
-        except Exception:
-            record_exc("on_pause")
-        return True
-
-    def on_resume(self):
-        try:
-            self.audio.resume()
-        except Exception:
-            record_exc("on_resume")
 
     def on_stop(self):
         save_game(self.save_path)
