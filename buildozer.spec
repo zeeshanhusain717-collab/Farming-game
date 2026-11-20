@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ogg,wav,mp3
 source.exclude_dirs = .buildozer,bin,.github,.git
 version = 1.0
-requirements = python3,kivy==2.3.0,plyer
+requirements = python3==3.11.5,kivy==2.3.0,plyer
 orientation = portrait
 fullscreen = 0
 android.permissions = VIBRATE
