@@ -331,12 +331,12 @@ class GameScreen(Screen):
         super().__init__(**kw)
         root = BoxLayout(orientation="vertical", padding=8, spacing=6)
 
-        self.top = Label(size_hint_y=None, height=60, font_size="15sp", halign="center")
-        wrap(self.top, auto_height=False)
+        self.top_lbl = Label(size_hint_y=None, height=60, font_size="15sp", halign="center")
+        wrap(self.top_lbl, auto_height=False)
         self.msg = Label(size_hint_y=None, height=40, font_size="14sp",
                          color=(1, 0.85, 0.4, 1), halign="center")
         wrap(self.msg, auto_height=False)
-        root.add_widget(self.top)
+        root.add_widget(self.top_lbl)
         root.add_widget(self.msg)
 
         tabs = TabbedPanel(do_default_tab=False, tab_width=110)
@@ -444,8 +444,8 @@ class GameScreen(Screen):
     @guarded
     def refresh(self):
         inc = total_income()
-        self.top.text = (f"Credits: {int(state['credits'])}   Crystals: {state['crystals']}\n"
-                         f"Income: {inc:.1f}/sec   Castle Tier: {tier_now()}/{N}")
+        self.top_lbl.text = (f"Credits: {int(state['credits'])}   Crystals: {state['crystals']}\n"
+                             f"Income: {inc:.1f}/sec   Castle Tier: {tier_now()}/{N}")
 
         for i, b in enumerate(self.plot_btns):
             name, price, _secs = CROPS[i]
