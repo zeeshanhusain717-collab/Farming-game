@@ -3,13 +3,12 @@ title = Farm7
 package.name = farm7
 package.domain = org.farm
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,ogg,wav,mp3
+source.include_exts = py,png,jpg,kv,atlas
 source.exclude_dirs = .buildozer,bin,.github,.git
 version = 1.0
-requirements = python3,kivy==2.3.0,plyer
+requirements = python3,kivy==2.3.0
 orientation = portrait
 fullscreen = 0
-android.permissions = VIBRATE
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
